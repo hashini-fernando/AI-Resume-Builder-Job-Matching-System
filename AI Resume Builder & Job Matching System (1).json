@@ -1,0 +1,436 @@
+{
+  "name": "AI Resume Builder & Job Matching System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 4
+            },
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        176
+      ],
+      "id": "e393bfdd-f551-469c-b57e-47fc91c01feb",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/curious_coder~linkedin-jobs-scraper/run-sync-get-dataset-items?token=xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "authentication": "xxxxxxxxxxxxxxxxxx",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n    \"count\": 100,\n    \"scrapeCompany\": true,\n    \"urls\": [\n        \"https://www.linkedin.com/jobs/search/?currentJobId=4283568150&f_TPR=r86400&keywords=software%20developer&origin=JOB_SEARCH_PAGE_JOB_FILTER&refresh=true\"\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        176
+      ],
+      "id": "f03cf436-c125-45c3-b391-825e2e28637c",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        720,
+        176
+      ],
+      "id": "983aa25d-814e-4733-af3a-4ddb825a9d86",
+      "name": "Limit 3"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "1wletwdjdh9vN_EpJzKmgUCzgKsSujBkQwHAgPyDbLVE"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        928,
+        176
+      ],
+      "id": "f0cb9d78-d6d1-4551-a90f-adf3a5f38a08",
+      "name": "Get a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Here is the job posting information:\nCompany Name : {{ $('Limit 3').item.json.companyName }}\nJob Description :{{ $('Limit 3').item.json.descriptionHtml }}\n\nHere is the candiate resume :{{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1136,
+        176
+      ],
+      "id": "e96bc622-0c87-4947-a4f0-b75adb54a989",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e63c85c4-b096-47bd-ab5f-52f135767856",
+              "leftValue": "={{ $json.finish_reason }}",
+              "rightValue": "stop",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1392,
+        176
+      ],
+      "id": "1a92bf98-a6f0-4ff0-897f-9af421ca1b07",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Job posting Description:  {{ $json.message.content }}\n\nCandidates Original resume : {{ $('Get a document').item.json.content }}",
+        "options": {
+          "systemMessage": "You are a Resume Enhancement Specialist. Your task is to enhance the provided resume based on the job requirements from LinkedIn job postings.\nINSTRUCTIONS:\n1. Take the original resume content and the job posting details\n2. Enhance the resume to better match the job requirements 3. Keep all original sections: Summary, Experience, Education, Skills, Projects, Awards & Certifications 4. Improve the content to highlight relevant skills and experiences\n5. Maintain the professional structure and formatting 6. Output the COMPLETE enhanced resume with ALL sections\nIMPORTANT FORMATTING RULES:\n- Output ONLY clean HTML content, no markdown formatting - Do NOT include ``html or or backticks in your response\n- Do NOT include the word \"html\" at the beginning - Use this exact structure:\n<h1>Jimmy Jim</h1>\n<div class=\"job-title\"><strong>Software Developer</strong> </div>\n<div class=\"contact-section\">\n<strong>Contact:</strong>\n<ul>\n<li>Phone: (555) 123-4567</li>\n<li>Email: jimmy.jim.jim@email.com</li>\n<li>LinkedIn: linkedin.com/in/jimmyjimjindev</li> <li>GitHub: github.com/jimmyjimjim-dev</li>\n</ul> </div>\n<h2><strong>Summary</strong></h2>\n<p class=\"summary\">[Enhanced summary here]</p>\n<h2><strong>Experience</strong></h2>\n[Job entries with proper HTML structure]"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        2016,
+        176
+      ],
+      "id": "962686ad-f0b8-4553-b8de-6e7d115f2577",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        176
+      ],
+      "id": "b59ed009-eabe-49e8-ab8f-3dd5888ab996",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1888,
+        384
+      ],
+      "id": "8b6394ad-3ff6-461b-a6a3-8ad535a63753",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawHtml = `\n<h1>Kamal Perera</h1>\n<div class=\"job-title\"><strong>Software Developer</strong></div>\n<div class=\"contact-section\">\n  <strong>Contact:</strong>\n  <ul>\n    <li>Phone: +94 77 123 4567</li>\n    <li>Email: kamal.perera@email.com</li>\n    <li>LinkedIn: linkedin.com/in/kamalperera</li>\n    <li>GitHub: github.com/kamalperera</li>\n  </ul>\n</div>\n<h2><strong>Summary</strong></h2>\n<p class=\"summary\">Dedicated Software Developer with 4+ years of experience designing and developing scalable enterprise web and mobile applications using Java, JavaScript, and Python. Proven ability to build robust RESTful APIs and manage both SQL and NoSQL databases.</p>\n`;\n\n// Instead of just formatting raw HTML, we can construct a full resume HTML structure here:\n\nconst resumeHtml = `\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <title>Kamal Perera - Software Developer Resume</title>\n  <style>\n    body {\n      font-family: Arial, sans-serif;\n      margin: 40px;\n      color: #333;\n      line-height: 1.6;\n      max-width: 700px;\n    }\n    h1 {\n      font-size: 2.5em;\n      margin-bottom: 0;\n    }\n    .job-title {\n      font-weight: bold;\n      font-size: 1.2em;\n      margin-bottom: 15px;\n      color: #007acc;\n    }\n    .contact-section strong {\n      font-size: 1.1em;\n      margin-bottom: 5px;\n      display: block;\n    }\n    .contact-section ul {\n      list-style: none;\n      padding: 0;\n      margin: 0 0 20px 0;\n    }\n    .contact-section li {\n      margin-bottom: 5px;\n    }\n    h2 {\n      border-bottom: 2px solid #007acc;\n      padding-bottom: 5px;\n      margin-top: 30px;\n    }\n    .summary {\n      margin-top: 10px;\n      font-size: 1em;\n    }\n  </style>\n</head>\n<body>\n  <h1>Kamal Perera</h1>\n  <div class=\"job-title\">Software Developer</div>\n\n  <div class=\"contact-section\">\n    <strong>Contact</strong>\n    <ul>\n      <li>Phone: +94 77 123 4567</li>\n      <li>Email: kamal.perera@email.com</li>\n      <li>LinkedIn: <a href=\"https://linkedin.com/in/kamalperera\" target=\"_blank\">linkedin.com/in/kamalperera</a></li>\n      <li>GitHub: <a href=\"https://github.com/kamalperera\" target=\"_blank\">github.com/kamalperera</a></li>\n    </ul>\n  </div>\n\n  <h2>Summary</h2>\n  <p class=\"summary\">\n    Dedicated Software Developer with 4+ years of experience designing and developing scalable enterprise web and mobile applications using Java, JavaScript, and Python. Proven ability to build robust RESTful APIs and manage both SQL and NoSQL databases.\n  </p>\n\n</body>\n</html>\n`;\n\nreturn [{ json: { resumeHtml } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        192
+      ],
+      "id": "6e9af695-52c7-4f73-a724-a157e23ddedd",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "folderId": "1yXUalV8NGI0kqKbH3rNG6Xvk-XpP8NwR",
+        "title": "=Enhanced Resume : {{ $('Limit').item.json.message.content }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        2576,
+        192
+      ],
+      "id": "e2a27585-0122-4226-9ff8-a5924174eb64",
+      "name": "Create a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/upload/drive/v3/files/{{ $json.id }}?uploadType-media",
+        "authentication": "xxxxxxxxxxxxxxxxxx",
+        "nodeCredentialType": "xxxxxxxxxxxxxxxxxx",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"content-type\":\"text/html\"\n}",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ $json.name }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2784,
+        192
+      ],
+      "id": "a7a2d044-1061-4717-a091-fee25b715abe",
+      "name": "HTTP Request1",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "rhsfernandoo@gmail.com",
+        "subject": "=completed",
+        "emailType": "text",
+        "message": "completed https://drive.google.com/drive/folders/1yXUalV8NGI0kqKbH3rNG6Xvk-XpP8NwR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3200,
+        192
+      ],
+      "id": "9a18f6ef-feff-4f88-8a77-7a6e96476901",
+      "name": "Send a message",
+      "webhookId": "745b70b0-c9a9-40cf-b307-7e854be2c87d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "xxxxxxxxxxxxxxxx",
+          "name": "Gmail account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Limit 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit 3": {
+      "main": [
+        [
+          {
+            "node": "Get a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a document": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Create a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a document": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "versionId": "88f7da83-955e-4cad-9fd0-e8ad6e8a1cc3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e3d048b4f0e24a1d8ffe9a25a84facb8a98530ed9640c267d1004881ab85aa5b"
+  },
+  "id": "2xzKhjiuxS02d1wC",
+  "tags": []
+}
